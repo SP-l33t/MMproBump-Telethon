@@ -7,31 +7,35 @@
 > 🇷 🇺 README in russian available [here](README-RU.md)
 
 ## Features  
-| Feature                                                   | Supported |
-|-----------------------------------------------------------|:---------:|
-| Multithreading                                            |     ✅     |
-| Proxy binding to session                                  |     ✅     |
-| Support for tdata / pyrogram .session / telethon .session |     ✅     |
-| Auto-farming                                              |     ✅     |
-| Auto-taps                                                 |     ✅     |
-| Collect bonus in every farming cycle                      |     ✅     |
-| Auto-tasks (twitter only)                                 |     ✅     |
-| Auto-boost                                                |     ✅     |
-| Auto-daily                                                |     ✅     |
+| Feature                              | Supported |
+|--------------------------------------|:---------:|
+| Multithreading                       |     ✅     |
+| Proxy binding to session             |     ✅     |
+| Auto-farming                         |     ✅     |
+| Auto-taps                            |     ✅     |
+| Collect bonus in every farming cycle |     ✅     |
+| Auto-tasks (twitter only)            |     ✅     |
+| Auto-boost                           |     ✅     |
+| Auto-daily                           |     ✅     |
+| Supports telethon .session           |     ✅     |
 
 
 ## [Settings](https://github.com/Desamod/MMproBump_bot/blob/master/.env-example/)
-| Settings                |                                 Description                                 |
-|-------------------------|:---------------------------------------------------------------------------:|
-| **API_ID / API_HASH**   | Platform data from which to run the Telegram session (by default - android) |
-| **TAPS_COUNT**          | How much clicks bot will get in farm cycle (by default - [100000, 500000])  |
-| **CLAIM_MOON**          |                Collecting a farm bonus  (by default - True)                 |
-| **MOON_BONUS**          |                   Moon-Bonus count (by default - 1000000)                   |
-| **BUY_BOOST**           |                     Buying a boost (by default - True)                      |
-| **DEFAULT_BOOST**       |               Boost type ("x2"/"x3"/"x5") (by default - "x5")               |
-| **AUTO_TASK**           |                 Auto tasks (Twitter only) (default - True)                  |
-| **USE_REF**             |                      Using a ref link (default - True)                      |
-| **USE_PROXY_FROM_FILE** | Whether to use a proxy from the bot/config/proxies.txt file (True / False)  |
+| Settings                |                                                                                                                  Description                                                                                                                  |
+|-------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| **API_ID / API_HASH**   |                                                                                  Platform data from which to run the Telegram session (by default - android)                                                                                  |
+| **GLOBAL_CONFIG_PATH**  | Specifies the global path for accounts_config, proxies, sessions. <br/>Specify an absolute path or use an environment variable (default environment variable: **TG_FARM**) <br/>If no environment variable exists, uses the script directory. |
+| **TAPS_COUNT**          |                                                                                  How much clicks bot will get in farm cycle (by default - [100000, 500000])                                                                                   |
+| **CLAIM_MOON**          |                                                                                                 Collecting a farm bonus  (by default - True)                                                                                                  |
+| **MOON_BONUS**          |                                                                                                    Moon-Bonus count (by default - 1000000)                                                                                                    |
+| **BUY_BOOST**           |                                                                                                      Buying a boost (by default - True)                                                                                                       |
+| **DEFAULT_BOOST**       |                                                                                                Boost type ("x2"/"x3"/"x5") (by default - "x5")                                                                                                |
+| **AUTO_TASK**           |                                                                                                  Auto tasks (Twitter only) (default - True)                                                                                                   |
+| **RANDOM_DELAY_IN_RUN** |                                                                      Random seconds delay for each session to start from 1 to this value (default : **30**, means 1..30)                                                                      |
+| **REF_ID**              |                                                                Will allow you to automatically referral your alts to main (default - None, please write here your telegram id)                                                                |
+| **USE_PROXY_FROM_FILE** |                                                                                  Whether to use a proxy from the bot/config/proxies.txt file (True / False)                                                                                   |
+| **DEVICE_PARAMS**       |                                                                          Enter device settings to make the telegram session look more realistic  (True / **False**)                                                                           |
+| **DEBUG_LOGGING**       |                                                                                     Whether to log error's tracebacks to /logs folder (True / **False**)                                                                                      |
 
 ## Quick Start 📚
 
