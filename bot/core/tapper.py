@@ -48,17 +48,9 @@ class Tapper:
         if not user_agent:
             user_agent = generate_random_user_agent()
             self.config['user_agent'] = user_agent
-            config_utils.update_config_file(self.session_name, self.config, CONFIG_PATH)
+            config_utils.update_session_config_in_file(self.session_name, self.config, CONFIG_PATH)
 
         return user_agent
-
-    async def get_short_name(self, input_user: InputUser):
-        try:
-            result = await self.tg_client(bots.GetBotInfoRequest(InputUser(input_user)))
-            return result.short_name
-        except Exception as e:
-            print(f"Error getting short name: {str(e)}")
-            return None
 
     async def get_tg_web_data(self) -> [str | None, str | None]:
         if self.proxy:
