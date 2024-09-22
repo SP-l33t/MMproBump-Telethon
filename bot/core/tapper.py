@@ -66,7 +66,7 @@ class Tapper:
             async with self.tg_client as client:
                 while True:
                     try:
-                        resolve_result = await self.tg_client(contacts.ResolveUsernameRequest(username='MMproBump_bot'))
+                        resolve_result = await client(contacts.ResolveUsernameRequest(username='MMproBump_bot'))
                         user = resolve_result.users[0]
                         peer = InputPeerUser(user_id=user.id, access_hash=user.access_hash)
                         input_user = InputUser(user_id=user.id, access_hash=user.access_hash)
@@ -82,14 +82,14 @@ class Tapper:
                 ref_id = settings.REF_ID if random.randint(0, 100) <= 85 else "ref_525256526"
 
                 start_state = False
-                async for message in self.tg_client.iter_messages('MMproBump_bot'):
+                async for message in client.iter_messages('MMproBump_bot'):
                     if r'/start' in message.text:
                         start_state = True
                         break
                 if not start_state:
-                    await self.tg_client(messages.StartBotRequest(bot=input_user, peer=peer, start_param=ref_id))
+                    await client(messages.StartBotRequest(bot=input_user, peer=peer, start_param=ref_id))
 
-                web_view = await self.tg_client(messages.RequestWebViewRequest(
+                web_view = await client(messages.RequestWebViewRequest(
                     peer=peer,
                     bot=user.username,
                     platform='android',
