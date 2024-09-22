@@ -58,71 +58,55 @@ class Tapper:
             proxy_dict = proxy_utils.to_telethon_proxy(proxy)
         else:
             proxy_dict = None
-
         self.tg_client.set_proxy(proxy_dict)
-        try:
-            if not self.tg_client.is_connected():
-                try:
-                    self.lock.acquire()
-                    await self.tg_client.start()
-                except (UnauthorizedError, AuthKeyUnregisteredError):
-                    raise InvalidSession(self.session_name)
-                except (UserDeactivatedError, UserDeactivatedBanError, PhoneNumberBannedError):
-                    raise InvalidSession(f"{self.session_name}: User is banned")
-            while True:
-                try:
-                    resolve_result = await self.tg_client(contacts.ResolveUsernameRequest(username='MMproBump_bot'))
-                    user = resolve_result.users[0]
-                    peer = InputPeerUser(user_id=user.id,access_hash=user.access_hash)
-                    input_user = InputUser(user_id=user.id, access_hash=user.access_hash)
-                    break
-                except FloodWaitError as fl:
-                    fls = fl.seconds
 
-                    logger.warning(self.log_message(f"FloodWait {fl}"))
-                    logger.info(self.log_message(f"Sleep {fls}s"))
 
-                    await asyncio.sleep(fls + 3)
+        data = None, None
+        with self.lock:
+            async with self.tg_client as client:
+                while True:
+                    try:
+                        resolve_result = await self.tg_client(contacts.ResolveUsernameRequest(username='MMproBump_bot'))
+                        user = resolve_result.users[0]
+                        peer = InputPeerUser(user_id=user.id, access_hash=user.access_hash)
+                        input_user = InputUser(user_id=user.id, access_hash=user.access_hash)
+                        break
+                    except FloodWaitError as fl:
+                        fls = fl.seconds
 
-            ref_id = settings.REF_ID if random.randint(0, 100) <= 85 else "ref_525256526"
+                        logger.warning(self.log_message(f"FloodWait {fl}"))
+                        logger.info(self.log_message(f"Sleep {fls}s"))
 
-            start_state = False
-            async for message in self.tg_client.iter_messages('MMproBump_bot'):
-                if r'/start' in message.text:
-                    start_state = True
-                    break
-            if not start_state:
-                await self.tg_client(messages.StartBotRequest(bot=input_user, peer=peer, start_param=ref_id))
+                        await asyncio.sleep(fls + 3)
 
-            web_view = await self.tg_client(messages.RequestWebViewRequest(
-                peer=peer,
-                bot=user.username,
-                platform='android',
-                from_bot_menu=False,
-                url="https://mmbump.pro/",
-                start_param=ref_id
-            ))
+                ref_id = settings.REF_ID if random.randint(0, 100) <= 85 else "ref_525256526"
 
-            auth_url = web_view.url
-            tg_web_data = unquote(
-                string=unquote(
-                    string=auth_url.split('tgWebAppData=', maxsplit=1)[1].split('&tgWebAppVersion', maxsplit=1)[0]))
+                start_state = False
+                async for message in self.tg_client.iter_messages('MMproBump_bot'):
+                    if r'/start' in message.text:
+                        start_state = True
+                        break
+                if not start_state:
+                    await self.tg_client(messages.StartBotRequest(bot=input_user, peer=peer, start_param=ref_id))
 
-            user_id = tg_web_data.split('"id":')[1].split(',"first_name"')[0]
+                web_view = await self.tg_client(messages.RequestWebViewRequest(
+                    peer=peer,
+                    bot=user.username,
+                    platform='android',
+                    from_bot_menu=False,
+                    url="https://mmbump.pro/",
+                    start_param=ref_id
+                ))
 
-            if self.tg_client.is_connected():
-                await self.tg_client.disconnect()
-                if self.lock.acquired:
-                    self.lock.release()
+                auth_url = web_view.url
+                tg_web_data = unquote(
+                    string=unquote(
+                        string=auth_url.split('tgWebAppData=', maxsplit=1)[1].split('&tgWebAppVersion', maxsplit=1)[0]))
 
-            return tg_web_data, user_id
+                user_id = tg_web_data.split('"id":')[1].split(',"first_name"')[0]
+                data = tg_web_data, user_id
 
-        except InvalidSession as error:
-            return None, None
-
-        except Exception as error:
-            log_error(self.log_message(f"Unknown error during Authorization: {error}"))
-            return None, None
+        return data
 
     async def login(self, http_client: aiohttp.ClientSession, tg_web_data: str, retry=0):
         try:
