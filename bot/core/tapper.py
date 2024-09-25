@@ -40,6 +40,8 @@ class Tapper:
         self.headers['User-Agent'] = self.check_user_agent()
         self.headers.update(**get_sec_ch_ua(self.headers.get('User-Agent', '')))
 
+        self._webview_data = None
+
     def log_message(self, message) -> str:
         return f"<light-yellow>{self.session_name}</light-yellow> | {message}"
 
@@ -60,24 +62,25 @@ class Tapper:
             proxy_dict = None
         self.tg_client.set_proxy(proxy_dict)
 
-
         data = None, None
         with self.lock:
             async with self.tg_client as client:
-                while True:
-                    try:
-                        resolve_result = await client(contacts.ResolveUsernameRequest(username='MMproBump_bot'))
-                        user = resolve_result.users[0]
-                        peer = InputPeerUser(user_id=user.id, access_hash=user.access_hash)
-                        input_user = InputUser(user_id=user.id, access_hash=user.access_hash)
-                        break
-                    except FloodWaitError as fl:
-                        fls = fl.seconds
+                if not self._webview_data:
+                    while True:
+                        try:
+                            resolve_result = await client(contacts.ResolveUsernameRequest(username='MMproBump_bot'))
+                            user = resolve_result.users[0]
+                            peer = InputPeerUser(user_id=user.id, access_hash=user.access_hash)
+                            input_user = InputUser(user_id=user.id, access_hash=user.access_hash)
+                            self._webview_data = {'peer': peer, 'bot': user.username}
+                            break
+                        except FloodWaitError as fl:
+                            fls = fl.seconds
 
-                        logger.warning(self.log_message(f"FloodWait {fl}"))
-                        logger.info(self.log_message(f"Sleep {fls}s"))
+                            logger.warning(self.log_message(f"FloodWait {fl}"))
+                            logger.info(self.log_message(f"Sleep {fls}s"))
 
-                        await asyncio.sleep(fls + 3)
+                            await asyncio.sleep(fls + 3)
 
                 ref_id = settings.REF_ID if random.randint(0, 100) <= 85 else "ref_525256526"
 
@@ -90,8 +93,7 @@ class Tapper:
                     await client(messages.StartBotRequest(bot=input_user, peer=peer, start_param=ref_id))
 
                 web_view = await client(messages.RequestWebViewRequest(
-                    peer=peer,
-                    bot=user.username,
+                    **self._webview_data,
                     platform='android',
                     from_bot_menu=False,
                     url="https://mmbump.pro/",
@@ -139,14 +141,15 @@ class Tapper:
             log_error(self.log_message(f"Unknown error when getting farming data: {error}"))
             await asyncio.sleep(delay=random.randint(3, 7))
 
-    async def check_proxy(self, http_client: aiohttp.ClientSession, proxy: str) -> bool:
+    async def check_proxy(self, http_client: aiohttp.ClientSession) -> bool:
+        proxy_conn = http_client._connector
         try:
-            response = await http_client.get(url='https://httpbin.org/ip', timeout=aiohttp.ClientTimeout(5))
-            ip = (await response.json()).get('origin')
-            logger.info(self.log_message(f"Proxy IP: {ip}"))
+            response = await http_client.get(url='https://ifconfig.me/ip', timeout=aiohttp.ClientTimeout(15))
+            logger.info(self.log_message(f"Proxy IP: {await response.text()}"))
             return True
         except Exception as error:
-            log_error(self.log_message(f"Proxy: {proxy} | Error: {error} Skipping this session"))
+            proxy_url = f"{proxy_conn._proxy_type}://{proxy_conn._proxy_host}:{proxy_conn._proxy_port}"
+            log_error(self.log_message(f"Proxy: {proxy_url} | Error: {type(error).__name__}"))
             return False
 
     async def refresh(self, http_client: aiohttp.ClientSession):
@@ -341,119 +344,112 @@ class Tapper:
         await asyncio.sleep(random_delay)
 
         access_token_created_time = 0
+        tg_web_data = None
+
         claim_time = 0
 
-        proxy_conn = None
-        if self.proxy:
-            proxy_conn = ProxyConnector().from_url(self.proxy)
-            http_client = CloudflareScraper(headers=self.headers, connector=proxy_conn)
-            p_type = proxy_conn._proxy_type
-            p_host = proxy_conn._proxy_host
-            p_port = proxy_conn._proxy_port
-            if not await self.check_proxy(http_client=http_client, proxy=f"{p_type}://{p_host}:{p_port}"):
-                return
-        else:
-            http_client = CloudflareScraper(headers=self.headers)
-
-        tg_web_data, user_id = await self.get_tg_web_data()
-
-        if not tg_web_data:
-            if not http_client.closed:
-                await http_client.close()
-            if proxy_conn and not proxy_conn.closed:
-                proxy_conn.close()
-            return
-
         while True:
-            try:
-                token_live_time = random.randint(3500, 3600)
-                if time() - access_token_created_time >= token_live_time:
-                    http_client.headers["User_auth:"] = user_id
-                    login_data = await self.login(http_client=http_client, tg_web_data=tg_web_data)
+            proxy_conn = {'connector': ProxyConnector.from_url(self.proxy)} if self.proxy else {}
+            async with CloudflareScraper(headers=self.headers, timeout=aiohttp.ClientTimeout(60), **proxy_conn) as http_client:
+                if not await self.check_proxy(http_client=http_client):
+                    logger.warning(self.log_message('Failed to connect to proxy server. Sleep 5 minutes.'))
+                    await asyncio.sleep(300)
+                    continue
 
-                    if login_data:
-                        http_client.headers["Authorization"] = f'{login_data["type"]} {login_data["access_token"]}'
-                    else:
-                        continue
+                try:
+                    token_live_time = random.randint(3500, 3600)
+                    if time() - access_token_created_time >= token_live_time:
+                        tg_web_data, user_id = await self.get_tg_web_data()
 
-                    access_token_created_time = time()
+                        if not tg_web_data:
+                            raise InvalidSession('Failed to get webview URL')
 
-                    info_data = await self.get_info_data(http_client=http_client)
-                    balance = info_data['balance']
-                    logger.info(self.log_message(f"Balance: <e>{balance}</e>"))
-                    day_grant_first = info_data['day_grant_first']
-                    day_grant_day = info_data['day_grant_day']
-                    system_time = info_data['system_time']
+                        http_client.headers["User_auth:"] = user_id
+                        login_data = await self.login(http_client=http_client, tg_web_data=tg_web_data)
 
-                    if day_grant_first is None:
-                        await self.claim_daily(http_client=http_client)
-                    else:
-                        next_claim_time = day_grant_first + timedelta(days=1).total_seconds() * day_grant_day
-                        if next_claim_time < system_time:
-                            # check if daily need to reset
-                            if next_claim_time + timedelta(days=1).total_seconds() < system_time:
-                                await self.reset_daily(http_client=http_client)
-                                await asyncio.sleep(delay=3)
-
-                            await self.claim_daily(http_client=http_client)
-
-                    if settings.AUTO_TASK:
-                        await asyncio.sleep(delay=random.randint(3, 5))
-                        await self.processing_tasks(http_client=http_client)
-
-                await asyncio.sleep(delay=random.randint(3, 10))
-                info_data = await self.get_info_data(http_client=http_client)
-
-                # boost flow
-                if settings.BUY_BOOST:
-                    if info_data['info'].get('boost') is None or info_data['info']['active_booster_finish_at'] < time():
-                        await asyncio.sleep(delay=random.randint(3, 8))
-                        await self.buy_boost(http_client=http_client, balance=info_data['balance'])
-
-                # farm flow
-                session = info_data['session']
-                status = session['status']
-
-                sleep_time = token_live_time
-                if status == "await":
-                    await self.start_farming(http_client=http_client, token_time=access_token_created_time)
-
-                if status == "inProgress":
-                    moon_time = session['moon_time']
-                    delta_time = moon_time - time()
-                    start_at = session['start_at']
-                    finish_at = start_at + settings.FARM_TIME
-                    time_left = finish_at - time()
-
-                    if settings.CLAIM_MOON and delta_time > 0:
-                        if delta_time < token_live_time + access_token_created_time - time():
-                            logger.info(self.log_message(
-                                f"Sleep <light-yellow>{int(delta_time)}</light-yellow> seconds before moon claiming"))
-                            await asyncio.sleep(delay=delta_time)
-                            await self.moon_claim(http_client=http_client)
+                        if login_data:
+                            http_client.headers["Authorization"] = f'{login_data["type"]} {login_data["access_token"]}'
                         else:
-                            logger.info(self.log_message(
-                                f"<light-yellow>{int(delta_time)}</light-yellow> seconds before moon claiming"))
+                            await asyncio.sleep(300)
+                            continue
 
-                    if time_left < 0:
-                        resp_status = await self.finish_farming(http_client=http_client,
-                                                                boost=info_data['info'].get('boost'))
-                        if resp_status:
+                        access_token_created_time = time()
+
+                        info_data = await self.get_info_data(http_client=http_client)
+                        balance = info_data['balance']
+                        logger.info(self.log_message(f"Balance: <e>{balance}</e>"))
+                        day_grant_first = info_data['day_grant_first']
+                        day_grant_day = info_data['day_grant_day']
+                        system_time = info_data['system_time']
+
+                        if day_grant_first is None:
+                            await self.claim_daily(http_client=http_client)
+                        else:
+                            next_claim_time = day_grant_first + timedelta(days=1).total_seconds() * day_grant_day
+                            if next_claim_time < system_time:
+                                # check if daily need to reset
+                                if next_claim_time + timedelta(days=1).total_seconds() < system_time:
+                                    await self.reset_daily(http_client=http_client)
+                                    await asyncio.sleep(delay=3)
+
+                                await self.claim_daily(http_client=http_client)
+
+                        if settings.AUTO_TASK:
                             await asyncio.sleep(delay=random.randint(3, 5))
-                            await self.start_farming(http_client=http_client, token_time=access_token_created_time)
-                    else:
-                        sleep_time = sleep_time if time_left > 3600 else time_left
-                        logger.info(self.log_message(
-                            f"Farming in progress, <light-yellow>{round(time_left / 60, 1)}</light-yellow> min before end"))
+                            await self.processing_tasks(http_client=http_client)
 
-            except InvalidSession as error:
-                raise error
+                    await asyncio.sleep(delay=random.randint(3, 10))
+                    info_data = await self.get_info_data(http_client=http_client)
 
-            except Exception as error:
-                log_error(self.log_message(f"Unknown error: {error}"))
-                await asyncio.sleep(delay=3)
+                    # boost flow
+                    if settings.BUY_BOOST:
+                        if info_data['info'].get('boost') is None or info_data['info']['active_booster_finish_at'] < time():
+                            await asyncio.sleep(delay=random.randint(3, 8))
+                            await self.buy_boost(http_client=http_client, balance=info_data['balance'])
 
-            else:
+                    # farm flow
+                    session = info_data['session']
+                    status = session['status']
+
+                    sleep_time = token_live_time
+                    if status == "await":
+                        await self.start_farming(http_client=http_client, token_time=access_token_created_time)
+
+                    if status == "inProgress":
+                        moon_time = session['moon_time']
+                        delta_time = moon_time - time()
+                        start_at = session['start_at']
+                        finish_at = start_at + settings.FARM_TIME
+                        time_left = finish_at - time()
+
+                        if settings.CLAIM_MOON and delta_time > 0:
+                            if delta_time < token_live_time + access_token_created_time - time():
+                                logger.info(self.log_message(
+                                    f"Sleep <light-yellow>{int(delta_time)}</light-yellow> seconds before moon claiming"))
+                                await asyncio.sleep(delay=delta_time)
+                                await self.moon_claim(http_client=http_client)
+                            else:
+                                logger.info(self.log_message(
+                                    f"<light-yellow>{int(delta_time)}</light-yellow> seconds before moon claiming"))
+
+                        if time_left < 0:
+                            resp_status = await self.finish_farming(http_client=http_client,
+                                                                    boost=info_data['info'].get('boost'))
+                            if resp_status:
+                                await asyncio.sleep(delay=random.randint(3, 5))
+                                await self.start_farming(http_client=http_client, token_time=access_token_created_time)
+                        else:
+                            sleep_time = sleep_time if time_left > 3600 else time_left
+                            logger.info(self.log_message(
+                                f"Farming in progress, <light-yellow>{round(time_left / 60, 1)}</light-yellow> min before end"))
+
+                except InvalidSession as error:
+                    raise error
+
+                except Exception as error:
+                    log_error(self.log_message(f"Unknown error: {error}"))
+                    await asyncio.sleep(delay=3)
+
                 logger.info(self.log_message(f"Sleep {sleep_time} seconds"))
                 await asyncio.sleep(delay=sleep_time)
 
