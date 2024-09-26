@@ -443,15 +443,15 @@ class Tapper:
                             logger.info(self.log_message(
                                 f"Farming in progress, <light-yellow>{round(time_left / 60, 1)}</light-yellow> min before end"))
 
+                    logger.info(self.log_message(f"Sleep {sleep_time} seconds"))
+                    await asyncio.sleep(delay=sleep_time)
+
                 except InvalidSession as error:
                     raise error
 
                 except Exception as error:
                     log_error(self.log_message(f"Unknown error: {error}"))
                     await asyncio.sleep(delay=3)
-
-                logger.info(self.log_message(f"Sleep {sleep_time} seconds"))
-                await asyncio.sleep(delay=sleep_time)
 
 
 async def run_tapper(tg_client: TelegramClient):
