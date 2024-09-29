@@ -125,6 +125,7 @@ class Tapper:
             finally:
                 if self.tg_client.is_connected():
                     await self.tg_client.disconnect()
+                    await asyncio.sleep(1)
 
         return data
 
@@ -380,7 +381,9 @@ class Tapper:
                         tg_web_data, user_id = await self.get_tg_web_data()
 
                         if not tg_web_data:
-                            raise InvalidSession('Failed to get webview URL')
+                            logger.warning(self.log_message('Failed to get webview URL'))
+                            await asyncio.sleep(300)
+                            continue
 
                         http_client.headers["User_auth:"] = user_id
                         login_data = await self.login(http_client=http_client, tg_web_data=tg_web_data)
