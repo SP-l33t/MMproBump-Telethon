@@ -1,23 +1,21 @@
 import aiohttp
 import asyncio
 import hashlib
-import os
-import random
-from urllib.parse import unquote
+import json
+import re
+from urllib.parse import unquote, parse_qs
 from aiocfscrape import CloudflareScraper
 from aiohttp_proxy import ProxyConnector
 from better_proxy import Proxy
 from datetime import timedelta
+from random import uniform, randint
 from time import time
 
-from opentele.tl import TelegramClient
-from telethon.errors import *
-from telethon.types import InputPeerUser
-from telethon.functions import messages, contacts
+from bot.utils.universal_telegram_client import UniversalTelegramClient
 
 from .headers import *
 from bot.config import settings
-from bot.utils import logger, log_error, proxy_utils, config_utils, AsyncInterProcessLock, CONFIG_PATH
+from bot.utils import logger, log_error, config_utils, CONFIG_PATH, first_run
 from bot.exceptions import InvalidSession
 
 
@@ -27,12 +25,9 @@ def generate_time_hash():
 
 
 class Tapper:
-    def __init__(self, tg_client: TelegramClient):
-        self.session_name, _ = os.path.splitext(os.path.basename(tg_client.session.filename))
+    def __init__(self, tg_client: UniversalTelegramClient):
         self.tg_client = tg_client
-        self.lock = AsyncInterProcessLock(
-            os.path.join(os.path.dirname(CONFIG_PATH), 'lock_files',  f"{self.session_name}.lock"))
-        self.headers = headers
+        self.session_name = tg_client.session_name
 
         session_config = config_utils.get_session_config(self.session_name, CONFIG_PATH)
 
@@ -40,6 +35,7 @@ class Tapper:
             logger.critical(self.log_message('CHECK accounts_config.json as it might be corrupted'))
             exit(-1)
 
+        self.headers = headers
         user_agent = session_config.get('user_agent')
         self.headers['user-agent'] = user_agent
         self.headers.update(**get_sec_ch_ua(user_agent))
@@ -47,92 +43,26 @@ class Tapper:
         self.proxy = session_config.get('proxy')
         if self.proxy:
             proxy = Proxy.from_str(self.proxy)
-            proxy_dict = proxy_utils.to_telethon_proxy(proxy)
-            self.tg_client.set_proxy(proxy_dict)
+            self.tg_client.set_proxy(proxy)
+
+        self.user_data = None
+        self.user_id = None
 
         self._webview_data = None
 
     def log_message(self, message) -> str:
         return f"<ly>{self.session_name}</ly> | {message}"
 
-    async def initialize_webview_data(self):
-        if not self._webview_data:
-            while True:
-                try:
-                    resolve_result = await self.tg_client(contacts.ResolveUsernameRequest(username='MMproBump_bot'))
-                    user = resolve_result.users[0]
-                    peer = InputPeerUser(user_id=user.id, access_hash=user.access_hash)
-                    self._webview_data = {'peer': peer, 'bot': user.username}
-                    break
-                except FloodWaitError as fl:
-                    fls = fl.seconds
+    async def get_tg_web_data(self) -> str:
+        webview_url = await self.tg_client.get_webview_url('MMproBump_bot', "https://mmbump.pro/", "ref_525256526")
 
-                    logger.warning(self.log_message(f"FloodWait {fl}. Waiting {fls}s"))
-                    await asyncio.sleep(fls + 3)
+        tg_web_data = unquote(unquote(string=webview_url.split('tgWebAppData=')[1].split('&tgWebAppVersion')[0]))
+        self.user_data = json.loads(parse_qs(tg_web_data).get('user', [''])[0])
+        self.user_id = self.user_data.get('id')
 
-                except (UnauthorizedError, AuthKeyUnregisteredError):
-                    raise InvalidSession(f"{self.session_name}: User is unauthorized")
-                except (UserDeactivatedError, UserDeactivatedBanError, PhoneNumberBannedError):
-                    raise InvalidSession(f"{self.session_name}: User is banned")
+        return tg_web_data
 
-    async def get_tg_web_data(self) -> [str | None, str | None]:
-        if self.proxy and not self.tg_client._proxy:
-            logger.critical(self.log_message('Proxy found, but not passed to TelegramClient'))
-            exit(-1)
-
-        data = None, None
-        async with self.lock:
-            try:
-                if not self.tg_client.is_connected():
-                    await self.tg_client.connect()
-                await self.initialize_webview_data()
-                await asyncio.sleep(random.uniform(1, 2))
-
-                ref_id = settings.REF_ID if random.randint(0, 100) <= 85 else "ref_525256526"
-
-                start_state = False
-                async for message in self.tg_client.iter_messages('MMproBump_bot'):
-                    if r'/start' in message.text:
-                        start_state = True
-                        break
-                await asyncio.sleep(random.uniform(0.5, 1))
-                if not start_state:
-                    await self.tg_client(messages.StartBotRequest(bot=self._webview_data.get('peer'),
-                                                                  peer=self._webview_data.get('peer'),
-                                                                  start_param=ref_id))
-                await asyncio.sleep(random.uniform(1, 2))
-
-                web_view = await self.tg_client(messages.RequestWebViewRequest(
-                    **self._webview_data,
-                    platform='android',
-                    from_bot_menu=False,
-                    url="https://mmbump.pro/",
-                    start_param=ref_id
-                ))
-
-                auth_url = web_view.url
-                tg_web_data = unquote(
-                    string=unquote(
-                        string=auth_url.split('tgWebAppData=', maxsplit=1)[1].split('&tgWebAppVersion', maxsplit=1)[0]))
-
-                user_id = tg_web_data.split('"id":')[1].split(',"first_name"')[0]
-                data = tg_web_data, user_id
-
-            except InvalidSession:
-                raise
-
-            except Exception as error:
-                log_error(self.log_message(f"Unknown error during Authorization: {type(error).__name__}"))
-                await asyncio.sleep(delay=3)
-
-            finally:
-                if self.tg_client.is_connected():
-                    await self.tg_client.disconnect()
-                    await asyncio.sleep(15)
-
-        return data
-
-    async def login(self, http_client: aiohttp.ClientSession, tg_web_data: str, retry=0):
+    async def login(self, http_client: CloudflareScraper, tg_web_data: str, retry=0):
         try:
             response = await http_client.post('https://api.mmbump.pro/v1/loginJwt', json={'initData': tg_web_data})
             response.raise_for_status()
@@ -151,7 +81,7 @@ class Tapper:
             if retry < 3:
                 return await self.login(http_client, tg_web_data, retry)
 
-    async def get_info_data(self, http_client: aiohttp.ClientSession):
+    async def get_info_data(self, http_client: CloudflareScraper):
         try:
             response = await http_client.post('https://api.mmbump.pro/v1/farming')
             response.raise_for_status()
@@ -161,9 +91,9 @@ class Tapper:
 
         except Exception as error:
             log_error(self.log_message(f"Unknown error when getting farming data: {error}"))
-            await asyncio.sleep(delay=random.randint(3, 7))
+            await asyncio.sleep(delay=randint(3, 7))
 
-    async def check_proxy(self, http_client: aiohttp.ClientSession) -> bool:
+    async def check_proxy(self, http_client: CloudflareScraper) -> bool:
         proxy_conn = http_client.connector
         if proxy_conn and not hasattr(proxy_conn, '_proxy_host'):
             logger.info(self.log_message(f"Running Proxy-less"))
@@ -177,7 +107,7 @@ class Tapper:
             log_error(self.log_message(f"Proxy: {proxy_url} | Error: {type(error).__name__}"))
             return False
 
-    async def refresh(self, http_client: aiohttp.ClientSession):
+    async def refresh(self, http_client: CloudflareScraper):
         try:
             response = await http_client.post('https://api.mmbump.pro/v1/auth/refresh')
             response.raise_for_status()
@@ -192,7 +122,7 @@ class Tapper:
             log_error(self.log_message(f"Unknown error while refreshing auth: {error}"))
             await asyncio.sleep(delay=3)
 
-    async def processing_tasks(self, http_client: aiohttp.ClientSession):
+    async def processing_tasks(self, http_client: CloudflareScraper):
         try:
             hash_data = generate_time_hash()
             response = await http_client.post('https://api.mmbump.pro/v1/task-list', json={'hash': hash_data})
@@ -219,13 +149,13 @@ class Tapper:
                     if task_json['status'] == 'granted':
                         logger.success(self.log_message(f"Task <e>{task['name']}</e> - Completed | "
                                        f"Granted <c>{task['grant']}</c> | Balance: <e>{complete_json['balance']}</e>"))
-                        await asyncio.sleep(delay=random.randint(3, 7))
+                        await asyncio.sleep(delay=randint(3, 7))
 
         except Exception as error:
             log_error(self.log_message(f"Unknown error when completing tasks: {error}"))
             await asyncio.sleep(delay=3)
 
-    async def claim_daily(self, http_client: aiohttp.ClientSession):
+    async def claim_daily(self, http_client: CloudflareScraper):
         try:
             response = await http_client.post('https://api.mmbump.pro/v1/grant-day/claim',
                                               json={'hash': generate_time_hash()})
@@ -241,7 +171,7 @@ class Tapper:
             log_error(self.log_message(f"Unknown error when Daily Claiming: {error}"))
             await asyncio.sleep(delay=3)
 
-    async def reset_daily(self, http_client: aiohttp.ClientSession):
+    async def reset_daily(self, http_client: CloudflareScraper):
         try:
             response = await http_client.post('https://api.mmbump.pro/v1/grant-day/reset')
             response.raise_for_status()
@@ -251,7 +181,7 @@ class Tapper:
             log_error(self.log_message(f"Unknown error when resetting Daily Reward: {error}"))
             await asyncio.sleep(delay=3)
 
-    async def start_farming(self, http_client: aiohttp.ClientSession, token_time: int):
+    async def start_farming(self, http_client: CloudflareScraper, token_time: int):
         try:
             json_data = {
                 'status': "inProgress",
@@ -279,9 +209,9 @@ class Tapper:
             log_error(self.log_message(f"Unknown error when Start Farming: {error}"))
             await asyncio.sleep(delay=3)
 
-    async def finish_farming(self, http_client: aiohttp.ClientSession, boost: str):
+    async def finish_farming(self, http_client: CloudflareScraper, boost: str):
         try:
-            taps = random.randint(settings.TAPS_COUNT[0], settings.TAPS_COUNT[1])
+            taps = randint(settings.TAPS_COUNT[0], settings.TAPS_COUNT[1])
             if boost is not None:
                 taps *= int(boost.split("x")[1])
 
@@ -313,9 +243,9 @@ class Tapper:
             await asyncio.sleep(delay=3)
             return False
 
-    async def moon_claim(self, http_client: aiohttp.ClientSession, retry: int = 0):
+    async def moon_claim(self, http_client: CloudflareScraper, retry: int = 0):
         try:
-            await asyncio.sleep(random.randint(3, 5))
+            await asyncio.sleep(randint(3, 5))
             refresh_data = await self.refresh(http_client=http_client)
 
             if refresh_data:
@@ -342,7 +272,7 @@ class Tapper:
             log_error(self.log_message(f"Unknown error when Moon Claiming: {error}"))
             await asyncio.sleep(delay=3)
 
-    async def buy_boost(self, http_client: aiohttp.ClientSession, balance: int):
+    async def buy_boost(self, http_client: CloudflareScraper, balance: int):
         try:
             boost_costs = settings.BOOSTERS[settings.DEFAULT_BOOST]
             if boost_costs > balance:
@@ -364,7 +294,7 @@ class Tapper:
             await asyncio.sleep(delay=3)
 
     async def run(self) -> None:
-        random_delay = random.uniform(1, settings.RANDOM_DELAY_IN_RUN)
+        random_delay = uniform(1, settings.RANDOM_DELAY_IN_RUN)
         logger.info(self.log_message(f"Bot will start in <ly>{int(random_delay)}s</ly>"))
         await asyncio.sleep(random_delay)
 
@@ -382,16 +312,16 @@ class Tapper:
                     continue
 
                 try:
-                    token_live_time = random.randint(3500, 3600)
+                    token_live_time = randint(3500, 3600)
                     if time() - access_token_created_time >= token_live_time:
-                        tg_web_data, user_id = await self.get_tg_web_data()
+                        tg_web_data = await self.get_tg_web_data()
 
                         if not tg_web_data:
                             logger.warning(self.log_message('Failed to get webview URL'))
                             await asyncio.sleep(300)
                             continue
 
-                        http_client.headers["User_auth:"] = user_id
+                        http_client.headers["User_auth:"] = str(self.user_id)
                         login_data = await self.login(http_client=http_client, tg_web_data=tg_web_data)
 
                         if login_data:
@@ -399,6 +329,9 @@ class Tapper:
                         else:
                             await asyncio.sleep(300)
                             continue
+
+                        if self.tg_client.is_fist_run:
+                            await first_run.append_recurring_session(self.session_name)
 
                         access_token_created_time = time()
 
@@ -422,16 +355,16 @@ class Tapper:
                                 await self.claim_daily(http_client=http_client)
 
                         if settings.AUTO_TASK:
-                            await asyncio.sleep(delay=random.randint(3, 5))
+                            await asyncio.sleep(delay=randint(3, 5))
                             await self.processing_tasks(http_client=http_client)
 
-                    await asyncio.sleep(delay=random.randint(3, 10))
+                    await asyncio.sleep(delay=randint(3, 10))
                     info_data = await self.get_info_data(http_client=http_client)
 
                     # boost flow
                     if settings.BUY_BOOST:
                         if info_data['info'].get('boost') is None or info_data['info']['active_booster_finish_at'] < time():
-                            await asyncio.sleep(delay=random.randint(3, 8))
+                            await asyncio.sleep(delay=randint(3, 8))
                             await self.buy_boost(http_client=http_client, balance=info_data['balance'])
 
                     # farm flow
@@ -463,7 +396,7 @@ class Tapper:
                             resp_status = await self.finish_farming(http_client=http_client,
                                                                     boost=info_data['info'].get('boost'))
                             if resp_status:
-                                await asyncio.sleep(delay=random.randint(3, 5))
+                                await asyncio.sleep(delay=randint(3, 5))
                                 await self.start_farming(http_client=http_client, token_time=access_token_created_time)
                         else:
                             sleep_time = sleep_time if time_left > 3600 else time_left
@@ -480,7 +413,7 @@ class Tapper:
                     await asyncio.sleep(delay=3)
 
 
-async def run_tapper(tg_client: TelegramClient):
+async def run_tapper(tg_client: UniversalTelegramClient):
     runner = Tapper(tg_client=tg_client)
     try:
         await runner.run()

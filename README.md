@@ -1,4 +1,4 @@
-[![Static Badge](https://img.shields.io/badge/Telegram-Bot%20Link-Link?style=for-the-badge&logo=Telegram&logoColor=white&logoSize=auto&color=blue)](https://t.me/MMproBump_bot?start=ref_7420057470)
+[![Static Badge](https://img.shields.io/badge/Telegram-Bot%20Link-Link?style=for-the-badge&logo=Telegram&logoColor=white&logoSize=auto&color=blue)](https://t.me/MMproBump_bot?start=ref_525256526)
 
 ## Recommendation before use
 
@@ -7,37 +7,43 @@
 > 🇷 🇺 README in russian available [here](README-RU.md)
 
 ## Features  
-| Feature                              | Supported |
-|--------------------------------------|:---------:|
-| Multithreading                       |     ✅     |
-| Proxy binding to session             |     ✅     |
-| Auto-farming                         |     ✅     |
-| Auto-taps                            |     ✅     |
-| Collect bonus in every farming cycle |     ✅     |
-| Auto-tasks (twitter only)            |     ✅     |
-| Auto-boost                           |     ✅     |
-| Auto-daily                           |     ✅     |
-| Supports telethon .session           |     ✅     |
+|                 Feature                 | Supported |
+|:---------------------------------------:|:---------:|
+|             Multithreading              |     ✅     |
+|        Proxy binding to session         |     ✅     |
+|              Auto-farming               |     ✅     |
+|                Auto-taps                |     ✅     |
+|  Collect bonus in every farming cycle   |     ✅     |
+|        Auto-tasks (twitter only)        |     ✅     |
+|               Auto-boost                |     ✅     |
+|               Auto-daily                |     ✅     |
+| Supports telethon AND pyrogram .session |     ✅     |
+
+_Script searches for session files in the following folders:_
+* /sessions
+* /sessions/pyrogram
+* /session/telethon
 
 
-## [Settings](https://github.com/Desamod/MMproBump_bot/blob/master/.env-example/)
-| Settings                  |                                                                                                                  Description                                                                                                                  |
-|---------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| **API_ID / API_HASH**     |                                                                                  Platform data from which to run the Telegram session (by default - android)                                                                                  |
-| **GLOBAL_CONFIG_PATH**    | Specifies the global path for accounts_config, proxies, sessions. <br/>Specify an absolute path or use an environment variable (default environment variable: **TG_FARM**) <br/>If no environment variable exists, uses the script directory. |
-| **TAPS_COUNT**            |                                                                                  How much clicks bot will get in farm cycle (by default - [100000, 500000])                                                                                   |
-| **CLAIM_MOON**            |                                                                                                 Collecting a farm bonus  (by default - True)                                                                                                  |
-| **MOON_BONUS**            |                                                                                                    Moon-Bonus count (by default - 1000000)                                                                                                    |
-| **BUY_BOOST**             |                                                                                                      Buying a boost (by default - True)                                                                                                       |
-| **DEFAULT_BOOST**         |                                                                                                Boost type ("x2"/"x3"/"x5") (by default - "x5")                                                                                                |
-| **AUTO_TASK**             |                                                                                                  Auto tasks (Twitter only) (default - True)                                                                                                   |
-| **RANDOM_DELAY_IN_RUN**   |                                                                      Random seconds delay for each session to start from 1 to this value (default : **30**, means 1..30)                                                                      |
-| **REF_ID**                |                                                                Will allow you to automatically referral your alts to main (default - None, please write here your telegram id)                                                                |
-| **SESSIONS_PER_PROXY**    |                                                                                            Amount of sessions, that can share same proxy ( **1** )                                                                                            |
-| **USE_PROXY_FROM_FILE**   |                                                                                Whether to use a proxy from the bot/config/proxies.txt file (**True** / False)                                                                                 |
+## [Settings](https://github.com/SP-l33t/MMproBump-Telethon/blob/master/.env-example/)
+|         Settings          |                                                                                                                  Description                                                                                                                  |
+|:-------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+|   **API_ID / API_HASH**   |                                                                                  Platform data from which to run the Telegram session (by default - android)                                                                                  |
+|  **GLOBAL_CONFIG_PATH**   | Specifies the global path for accounts_config, proxies, sessions. <br/>Specify an absolute path or use an environment variable (default environment variable: **TG_FARM**) <br/>If no environment variable exists, uses the script directory. |
+|       **FIX_CERT**        |                                                                                           Try to fix  SSLCertVerificationError ( True / **False** )                                                                                           |
+|      **TAPS_COUNT**       |                                                                                  How much clicks bot will get in farm cycle (by default - [100000, 500000])                                                                                   |
+|      **CLAIM_MOON**       |                                                                                                 Collecting a farm bonus  (by default - True)                                                                                                  |
+|      **MOON_BONUS**       |                                                                                                    Moon-Bonus count (by default - 1000000)                                                                                                    |
+|       **BUY_BOOST**       |                                                                                                      Buying a boost (by default - True)                                                                                                       |
+|     **DEFAULT_BOOST**     |                                                                                                Boost type ("x2"/"x3"/"x5") (by default - "x5")                                                                                                |
+|       **AUTO_TASK**       |                                                                                                  Auto tasks (Twitter only) (default - True)                                                                                                   |
+|  **RANDOM_DELAY_IN_RUN**  |                                                                      Random seconds delay for each session to start from 1 to this value (default : **30**, means 1..30)                                                                      |
+|        **REF_ID**         |                                                                Will allow you to automatically referral your alts to main (default - None, please write here your telegram id)                                                                |
+|  **SESSIONS_PER_PROXY**   |                                                                                            Amount of sessions, that can share same proxy ( **1** )                                                                                            |
+|  **USE_PROXY_FROM_FILE**  |                                                                                Whether to use a proxy from the bot/config/proxies.txt file (**True** / False)                                                                                 |
 | **DISABLE_PROXY_REPLACE** |                                                                      Disable automatic checking and replacement of non-working proxies before startup (True / **False**)                                                                      |
-| **DEVICE_PARAMS**         |                                                                          Enter device settings to make the telegram session look more realistic  (True / **False**)                                                                           |
-| **DEBUG_LOGGING**         |                                                                                     Whether to log error's tracebacks to /logs folder (True / **False**)                                                                                      |
+|     **DEVICE_PARAMS**     |                                                                          Enter device settings to make the telegram session look more realistic  (True / **False**)                                                                           |
+|     **DEBUG_LOGGING**     |                                                                                     Whether to log error's tracebacks to /logs folder (True / **False**)                                                                                      |
 
 ## Quick Start 📚
 
@@ -53,10 +59,10 @@ Before you begin, make sure you have the following installed:
 3. Record the API_ID and API_HASH provided after registering your application in the .env file.
 
 ## Installation
-You can download the [**repository**](https://github.com/Desamod/MMproBump_bot) by cloning it to your system and installing the necessary dependencies:
+You can download the [**repository**](https://github.com/SP-l33t/MMproBump-Telethon) by cloning it to your system and installing the necessary dependencies:
 ```shell
-git clone https://github.com/Desamod/MMproBump_bot.git
-cd MMproBump_bot
+git clone https://github.com/SP-l33t/MMproBump-Telethon.git
+cd MMproBump-Telethon
 ```
 
 Then you can do automatic installation by typing:
@@ -83,9 +89,9 @@ python3 main.py
 
 You can also use arguments for quick start, for example:
 ```shell
-~/MMproBump_bot >>> python3 main.py --action (1/2)
+~/MMproBump-Telethon >>> python3 main.py --action (1/2)
 # Or
-~/MMproBump_bot >>> python3 main.py -a (1/2)
+~/MMproBump-Telethon >>> python3 main.py -a (1/2)
 
 # 1 - Run clicker
 # 2 - Creates a session
@@ -103,9 +109,9 @@ python main.py
 
 You can also use arguments for quick start, for example:
 ```shell
-~/MMproBump_bot >>> python main.py --action (1/2)
+~/MMproBump-Telethon >>> python main.py --action (1/2)
 # Or
-~/MMproBump_bot >>> python main.py -a (1/2)
+~/MMproBump-Telethon >>> python main.py -a (1/2)
 
 # 1 - Run clicker
 # 2 - Creates a session
