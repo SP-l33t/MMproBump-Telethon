@@ -118,7 +118,7 @@ class UniversalTelegramClient:
                 await self._telethon_initialize_webview_data(bot_username=bot_username, bot_shortname=bot_shortname)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
 
                 web_view = await self.client(messages.RequestAppWebViewRequest(
                     **self._webview_data,
@@ -134,9 +134,8 @@ class UniversalTelegramClient:
             except (UserDeactivatedError, UserDeactivatedBanError, PhoneNumberBannedError):
                 raise InvalidSession(f"{self.session_name}: User is banned")
 
-            except Exception as error:
-                log_error(f"<ly>{self.session_name}</ly> | Unknown error during Authorization: {type(error).__name__}")
-                await asyncio.sleep(delay=3)
+            except Exception:
+                raise
 
             finally:
                 if self.client.is_connected():
@@ -155,7 +154,7 @@ class UniversalTelegramClient:
                 await self._telethon_initialize_webview_data(bot_username=bot_username)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
 
                 start_state = False
                 async for message in self.client.iter_messages('MMproBump_bot'):
@@ -184,9 +183,8 @@ class UniversalTelegramClient:
             except (UserDeactivatedError, UserDeactivatedBanError, PhoneNumberBannedError):
                 raise InvalidSession(f"{self.session_name}: User is banned")
 
-            except Exception as error:
-                log_error(f"<ly>{self.session_name}</ly> | Unknown error during Authorization: {type(error).__name__}")
-                await asyncio.sleep(delay=3)
+            except Exception:
+                raise
 
             finally:
                 if self.client.is_connected():
@@ -205,7 +203,7 @@ class UniversalTelegramClient:
                 await self._pyrogram_initialize_webview_data(bot_username, bot_shortname)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
                 web_view = await self.client.invoke(pmessages.RequestAppWebView(
                     **self._webview_data,
                     platform='android',
@@ -220,9 +218,8 @@ class UniversalTelegramClient:
             except (UserDeactivated, UserDeactivatedBan, PhoneNumberBanned):
                 raise InvalidSession(f"{self.session_name}: User is banned")
 
-            except Exception as error:
-                log_error(f"<ly>{self.session_name}</ly> | Unknown error during Authorization: {type(error).__name__}")
-                await asyncio.sleep(delay=3)
+            except Exception:
+                raise
 
             finally:
                 if self.client.is_connected:
@@ -241,7 +238,7 @@ class UniversalTelegramClient:
                 await self._pyrogram_initialize_webview_data(bot_username)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
 
                 start_state = False
                 async for message in self.client.get_chat_history('MMproBump_bot'):
@@ -270,9 +267,8 @@ class UniversalTelegramClient:
             except (UserDeactivated, UserDeactivatedBan, PhoneNumberBanned):
                 raise InvalidSession(f"{self.session_name}: User is banned")
 
-            except Exception as error:
-                log_error(f"<ly>{self.session_name}</ly> | Unknown error during Authorization: {type(error).__name__}")
-                await asyncio.sleep(delay=3)
+            except Exception:
+                raise
 
             finally:
                 if self.client.is_connected:

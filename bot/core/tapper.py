@@ -2,7 +2,8 @@ import aiohttp
 import asyncio
 import hashlib
 import json
-import re
+from certifi import where
+from os import environ
 from urllib.parse import unquote, parse_qs
 from aiocfscrape import CloudflareScraper
 from aiohttp_proxy import ProxyConnector
@@ -73,6 +74,9 @@ class Tapper:
             response_ver.raise_for_status()
             return response_json
 
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             log_error(self.log_message(f"Unknown error when Logining: {error}"))
             await asyncio.sleep(delay=3)
@@ -89,6 +93,9 @@ class Tapper:
             response_json = await response.json()
             return response_json
 
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             log_error(self.log_message(f"Unknown error when getting farming data: {error}"))
             await asyncio.sleep(delay=randint(3, 7))
@@ -102,6 +109,10 @@ class Tapper:
             response = await http_client.get(url='https://ifconfig.me/ip', timeout=aiohttp.ClientTimeout(15))
             logger.info(self.log_message(f"Proxy IP: {await response.text()}"))
             return True
+
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             proxy_url = f"{proxy_conn._proxy_type}://{proxy_conn._proxy_host}:{proxy_conn._proxy_port}"
             log_error(self.log_message(f"Proxy: {proxy_url} | Error: {type(error).__name__}"))
@@ -117,6 +128,9 @@ class Tapper:
             response_ver = await http_client.get('https://mmbump.pro/version.json')
             response_ver.raise_for_status()
             return response_json
+
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
 
         except Exception as error:
             log_error(self.log_message(f"Unknown error while refreshing auth: {error}"))
@@ -151,6 +165,9 @@ class Tapper:
                                        f"Granted <c>{task['grant']}</c> | Balance: <e>{complete_json['balance']}</e>"))
                         await asyncio.sleep(delay=randint(3, 7))
 
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             log_error(self.log_message(f"Unknown error when completing tasks: {error}"))
             await asyncio.sleep(delay=3)
@@ -167,6 +184,9 @@ class Tapper:
             logger.success(self.log_message(
                 f"Daily Claimed! | New Balance: <e>{new_balance}</e> | Day count: <g>{day_grant_day}</g>"))
 
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             log_error(self.log_message(f"Unknown error when Daily Claiming: {error}"))
             await asyncio.sleep(delay=3)
@@ -176,6 +196,9 @@ class Tapper:
             response = await http_client.post('https://api.mmbump.pro/v1/grant-day/reset')
             response.raise_for_status()
             logger.info(self.log_message(f"Reset Daily Reward"))
+
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
 
         except Exception as error:
             log_error(self.log_message(f"Unknown error when resetting Daily Reward: {error}"))
@@ -204,6 +227,9 @@ class Tapper:
                         await self.moon_claim(http_client=http_client)
             else:
                 logger.warning(self.log_message(f"Can't start farming | Status: <r>{status}</r>"))
+
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
 
         except Exception as error:
             log_error(self.log_message(f"Unknown error when Start Farming: {error}"))
@@ -238,6 +264,9 @@ class Tapper:
                     f"points | New balance: <e>{new_balance}</e>"))
             return True
 
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             log_error(self.log_message(f"Unknown error when Stop Farming: {error}"))
             await asyncio.sleep(delay=3)
@@ -268,6 +297,9 @@ class Tapper:
                     new_balance = response_json['balance']
                     logger.success(self.log_message(f"Moon bonus claimed | Balance: <e>{new_balance}</e>"))
 
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             log_error(self.log_message(f"Unknown error when Moon Claiming: {error}"))
             await asyncio.sleep(delay=3)
@@ -289,12 +321,15 @@ class Tapper:
             logger.success(self.log_message(
                 f"Bought boost <light-yellow>{boost_id}</light-yellow> | Balance: <e>{new_balance}</e>"))
 
+        except aiohttp.client_exceptions.ClientConnectorCertificateError:
+            raise
+
         except Exception as error:
             log_error(self.log_message(f"Unknown error when Moon Claiming: {error}"))
             await asyncio.sleep(delay=3)
 
     async def run(self) -> None:
-        random_delay = uniform(1, settings.RANDOM_DELAY_IN_RUN)
+        random_delay = uniform(1, settings.SESSION_START_DELAY)
         logger.info(self.log_message(f"Bot will start in <ly>{int(random_delay)}s</ly>"))
         await asyncio.sleep(random_delay)
 
@@ -408,14 +443,22 @@ class Tapper:
                 except InvalidSession as error:
                     raise error
 
+                except aiohttp.client_exceptions.ClientConnectorCertificateError:
+                    raise
+
                 except Exception as error:
-                    log_error(self.log_message(f"Unknown error: {error}"))
-                    await asyncio.sleep(delay=3)
+                    sleep_time = uniform(60, 120)
+                    log_error(self.log_message(f"Unknown error: {error}. Sleep: {int(sleep_time)}"))
+                    await asyncio.sleep(sleep_time)
 
 
 async def run_tapper(tg_client: UniversalTelegramClient):
     runner = Tapper(tg_client=tg_client)
     try:
         await runner.run()
+    except aiohttp.client_exceptions.ClientConnectorCertificateError as error:
+        log_error(runner.log_message(f"SSL Certificate error. Trying to fix: {error}"))
+        environ['SSL_CERT_FILE'] = where()
+        await asyncio.sleep(delay=3)
     except InvalidSession as e:
         log_error(runner.log_message(f"Invalid Session: {e}"))

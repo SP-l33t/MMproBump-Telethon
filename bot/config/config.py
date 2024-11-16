@@ -23,7 +23,7 @@ class Settings(BaseSettings):
         "x5": 200000000
     }
 
-    RANDOM_DELAY_IN_RUN: int = 30
+    SESSION_START_DELAY: int = 360
     REF_ID: str = ""
 
     SESSIONS_PER_PROXY: int = 1
