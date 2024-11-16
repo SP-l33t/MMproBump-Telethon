@@ -93,19 +93,6 @@ class UniversalTelegramClient:
                     logger.warning(f"<ly>{self.session_name}</ly> | FloodWait {fl}. Waiting {fl.seconds}s")
                     await asyncio.sleep(fl.seconds + 3)
 
-    async def _pyrogram_initialize_webview_data(self, bot_username: str, bot_shortname: str = None):
-        if not self._webview_data:
-            while True:
-                try:
-                    peer = await self.client.resolve_peer(bot_username)
-                    input_bot_app = ptypes.InputBotAppShortName(bot_id=peer, short_name=bot_shortname)
-                    self._webview_data = {'peer': peer, 'app': input_bot_app} if bot_shortname \
-                        else {'peer': peer, 'bot': bot_username}
-                    return
-                except FloodWait as fl:
-                    logger.warning(f"<ly>{self.session_name}</ly> | FloodWait {fl}. Waiting {fl.value}s")
-                    await asyncio.sleep(fl.value + 3)
-
     async def _telethon_get_app_webview_url(self, bot_username: str, bot_shortname: str, default_val: str) -> str:
         if self.proxy and not self.client._proxy:
             logger.critical(f"<ly>{self.session_name}</ly> | Proxy found, but not passed to TelegramClient")
@@ -118,7 +105,7 @@ class UniversalTelegramClient:
                 await self._telethon_initialize_webview_data(bot_username=bot_username, bot_shortname=bot_shortname)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
 
                 web_view = await self.client(messages.RequestAppWebViewRequest(
                     **self._webview_data,
@@ -154,7 +141,7 @@ class UniversalTelegramClient:
                 await self._telethon_initialize_webview_data(bot_username=bot_username)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
 
                 start_state = False
                 async for message in self.client.iter_messages('MMproBump_bot'):
@@ -163,9 +150,7 @@ class UniversalTelegramClient:
                         break
                 await asyncio.sleep(uniform(0.5, 1))
                 if not start_state:
-                    await self.client(messages.StartBotRequest(bot=self._webview_data.get('peer'),
-                                                               peer=self._webview_data.get('peer'),
-                                                               **start))
+                    await self.client(messages.StartBotRequest(**self._webview_data, **start))
                 await asyncio.sleep(uniform(1, 2))
 
                 web_view = await self.client(messages.RequestWebViewRequest(
@@ -191,6 +176,19 @@ class UniversalTelegramClient:
                     await self.client.disconnect()
                     await asyncio.sleep(15)
 
+    async def _pyrogram_initialize_webview_data(self, bot_username: str, bot_shortname: str = None):
+        if not self._webview_data:
+            while True:
+                try:
+                    peer = await self.client.resolve_peer(bot_username)
+                    input_bot_app = ptypes.InputBotAppShortName(bot_id=peer, short_name=bot_shortname)
+                    self._webview_data = {'peer': peer, 'app': input_bot_app} if bot_shortname \
+                        else {'peer': peer, 'bot': peer}
+                    return
+                except FloodWait as fl:
+                    logger.warning(f"<ly>{self.session_name}</ly> | FloodWait {fl}. Waiting {fl.value}s")
+                    await asyncio.sleep(fl.value + 3)
+
     async def _pyrogram_get_app_webview_url(self, bot_username: str, bot_shortname: str, default_val: str) -> str:
         if self.proxy and not self.client.proxy:
             logger.critical(f"<ly>{self.session_name}</ly> | Proxy found, but not passed to Client")
@@ -203,7 +201,7 @@ class UniversalTelegramClient:
                 await self._pyrogram_initialize_webview_data(bot_username, bot_shortname)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
                 web_view = await self.client.invoke(pmessages.RequestAppWebView(
                     **self._webview_data,
                     platform='android',
@@ -238,7 +236,7 @@ class UniversalTelegramClient:
                 await self._pyrogram_initialize_webview_data(bot_username)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
 
                 start_state = False
                 async for message in self.client.get_chat_history('MMproBump_bot'):
