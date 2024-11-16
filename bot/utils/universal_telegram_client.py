@@ -118,7 +118,7 @@ class UniversalTelegramClient:
                 await self._telethon_initialize_webview_data(bot_username=bot_username, bot_shortname=bot_shortname)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
 
                 web_view = await self.client(messages.RequestAppWebViewRequest(
                     **self._webview_data,
@@ -154,7 +154,7 @@ class UniversalTelegramClient:
                 await self._telethon_initialize_webview_data(bot_username=bot_username)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
 
                 start_state = False
                 async for message in self.client.iter_messages('MMproBump_bot'):
@@ -203,7 +203,7 @@ class UniversalTelegramClient:
                 await self._pyrogram_initialize_webview_data(bot_username, bot_shortname)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
                 web_view = await self.client.invoke(pmessages.RequestAppWebView(
                     **self._webview_data,
                     platform='android',
@@ -238,7 +238,7 @@ class UniversalTelegramClient:
                 await self._pyrogram_initialize_webview_data(bot_username)
                 await asyncio.sleep(uniform(1, 2))
 
-                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 and settings.REF_ID else default_val} if self.is_fist_run else {}
+                start = {'start_param': settings.REF_ID if randint(0, 100) <= 85 else default_val} if self.is_fist_run and settings.REF_ID else {}
 
                 start_state = False
                 async for message in self.client.get_chat_history('MMproBump_bot'):
